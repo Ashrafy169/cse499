@@ -129,6 +129,18 @@ export const downloadReportCsv = async () => {
   window.URL.revokeObjectURL(url);
 };
 
+// Notifications
+export const getNotifications = (params?: Record<string, unknown>) =>
+  api.get("/notifications", { params });
+export const markNotificationRead = (id: string) =>
+  api.patch(`/notifications/${id}/read`);
+export const markAllNotificationsRead = () =>
+  api.patch("/notifications/read-all");
+
+// Custom invoice (admin)
+export const createCustomInvoice = (data: unknown) =>
+  api.post("/invoices/custom", data);
+
 // AI Chat
 export const sendChatMessage = (message: string) =>
   api.post<{ reply: string }>("/ai/chat", { message });

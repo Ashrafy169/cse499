@@ -43,7 +43,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex justify-center">
-          <div className="bg-black rounded-xl px-8 py-5">
+          <div className="bg-white rounded-xl px-8 py-5 shadow-sm border border-slate-200">
             <Image src="/logo.png" alt="AmberIT" width={140} height={44} priority />
           </div>
         </div>

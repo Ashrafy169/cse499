@@ -59,6 +59,24 @@ migrations = [
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
     """,
+
+    # FR-06: partial payment tracking columns on invoices
+    "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(10, 2) NOT NULL DEFAULT 0",
+    "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS description VARCHAR(500)",
+    "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS is_custom BOOLEAN NOT NULL DEFAULT FALSE",
+
+    # FR-09: notifications table
+    """
+    CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        message TEXT NOT NULL,
+        is_read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
 ]
 
 def run():

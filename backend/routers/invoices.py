@@ -10,8 +10,11 @@ from database import get_db
 from models.customer import Customer
 from models.invoice import Invoice, InvoiceStatus
 from models.user import User, UserRole
-from schemas.invoice import GenerateResponse, InvoiceListResponse, InvoiceOut, InvoiceStatusUpdate
+from models.notification import NotificationType
+from models.user import User as UserModel
+from schemas.invoice import CustomInvoiceCreate, GenerateResponse, InvoiceListResponse, InvoiceOut, InvoiceStatusUpdate
 from services.invoice_service import generate_monthly_invoices, mark_overdue_invoices
+from services.notification_service import create_notification, notify_all_staff
 from services.pdf_service import generate_invoice_pdf
 
 router = APIRouter()
@@ -80,6 +83,65 @@ def trigger_mark_overdue(
 ):
     count = mark_overdue_invoices(db)
     return {"updated": count, "message": f"{count} invoice(s) marked as overdue."}
+
+
+@router.post("/custom", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
+def create_custom_invoice(
+    payload: CustomInvoiceCreate,
+    current_user: User = Depends(_billing_access),
+    db: Session = Depends(get_db),
+):
+    customer = (
+        db.query(Customer)
+        .options(selectinload(Customer.invoices))
+        .filter(Customer.id == payload.customer_id)
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+
+    inv = Invoice(
+        customer_id=payload.customer_id,
+        plan_id=customer.plan_id,
+        amount=payload.amount,
+        amount_paid=0,
+        due_date=payload.due_date,
+        status=InvoiceStatus.unpaid,
+        billing_month=payload.billing_month,
+        description=payload.description,
+        is_custom=True,
+    )
+    db.add(inv)
+    db.flush()
+    db.refresh(inv, attribute_names=["customer", "plan"])
+
+    # Notify the customer's linked user account
+    customer_user = (
+        db.query(UserModel)
+        .filter(UserModel.customer_id == payload.customer_id)
+        .first()
+    )
+    if customer_user:
+        create_notification(
+            db,
+            str(customer_user.id),
+            NotificationType.custom_invoice,
+            "New Invoice",
+            f"A custom invoice of BDT {float(payload.amount):,.0f} has been created for {payload.billing_month}."
+            + (f" Note: {payload.description}" if payload.description else ""),
+        )
+
+    notify_all_staff(
+        db,
+        NotificationType.custom_invoice,
+        "Custom Invoice Created",
+        f"{current_user.full_name} created a custom invoice of BDT {float(payload.amount):,.0f} "
+        f"for {customer.full_name} ({payload.billing_month}).",
+    )
+
+    db.commit()
+    db.refresh(inv)
+    return inv
 
 
 # ── Admin list ───────────────────────────────────────────────────────────────

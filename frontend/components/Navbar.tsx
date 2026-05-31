@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import NotificationBell from "@/components/NotificationBell";
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -36,6 +37,7 @@ export default function Navbar() {
     <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
       <h1 className="text-lg font-semibold text-slate-800">{title}</h1>
       <div className="flex items-center gap-3">
+        <NotificationBell />
         <div className="text-right hidden sm:block">
           <p className="text-sm font-medium text-slate-700 leading-none">
             {user?.full_name ?? "Admin"}

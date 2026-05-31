@@ -11,12 +11,14 @@ from core.security import get_password_hash
 from database import Base, SessionLocal, engine
 from models.customer import Customer
 from models.invoice import Invoice
+from models.notification import Notification  # noqa: F401
 from models.payment import Payment  # noqa: F401
 from models.plan import Plan
 from models.plan_change import PlanChangeRequest  # noqa: F401
 from models.ticket import Ticket  # noqa: F401
 from models.user import User, UserRole
 from routers import auth, chat, customers, invoices, plans, tickets, users
+from routers import notifications as notifications_router
 from routers import payments as payments_router
 from routers import plan_changes as plan_changes_router
 from routers import reports as reports_router
@@ -139,3 +141,4 @@ app.include_router(payments_router.router, prefix="/payments", tags=["Payments"]
 app.include_router(plan_changes_router.router, prefix="/plan-changes", tags=["Plan Changes"])
 app.include_router(reports_router.router, prefix="/reports", tags=["Reports"])
 app.include_router(chat.router, prefix="/ai", tags=["AI Chat"])
+app.include_router(notifications_router.router, prefix="/notifications", tags=["Notifications"])

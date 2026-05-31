@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from core.dependencies import get_current_user, require_roles
 from database import get_db
+from models.notification import NotificationType
 from models.plan import Plan
 from models.plan_change import PlanChangeRequest, PlanChangeStatus
 from models.user import User, UserRole
@@ -12,6 +13,7 @@ from schemas.plan_change import (
     PlanChangeRequestOut,
     PlanChangeReview,
 )
+from services.notification_service import create_notification, notify_all_staff
 
 router = APIRouter()
 
@@ -60,6 +62,15 @@ def submit_plan_change(
         status=PlanChangeStatus.pending,
     )
     db.add(req)
+    db.flush()
+
+    notify_all_staff(
+        db,
+        NotificationType.plan_change_requested,
+        "Plan Change Request",
+        f"{current_user.full_name} requested to change to plan \"{requested_plan.name}\".",
+    )
+
     db.commit()
     db.refresh(req)
     return req
@@ -120,6 +131,20 @@ def review_request(
         customer = db.get(Customer, req.customer_id)
         if customer:
             customer.plan_id = req.requested_plan_id
+
+    # Notify the customer's user account
+    from models.user import User as UserModel
+    customer_user = db.query(UserModel).filter(UserModel.customer_id == req.customer_id).first()
+    if customer_user:
+        action = "approved" if payload.status == PlanChangeStatus.approved else "rejected"
+        create_notification(
+            db,
+            str(customer_user.id),
+            NotificationType.plan_change_reviewed,
+            f"Plan Change {action.capitalize()}",
+            f"Your plan change request has been {action}."
+            + (f" Note: {payload.staff_note}" if payload.staff_note else ""),
+        )
 
     db.commit()
     db.refresh(req)

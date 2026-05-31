@@ -15,6 +15,7 @@ class PaymentCreate(BaseModel):
     invoice_id: str
     method: PaymentMethod
     transaction_ref: str
+    amount: float | None = None  # None = pay full remaining balance
 
 
 class PaymentOut(BaseModel):

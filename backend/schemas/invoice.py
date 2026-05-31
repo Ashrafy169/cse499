@@ -42,9 +42,12 @@ class InvoiceOut(BaseModel):
     customer_id: str
     plan_id: str | None = None
     amount: Decimal
+    amount_paid: Decimal = Decimal("0")
     due_date: date
     status: InvoiceStatus
     billing_month: str
+    description: str | None = None
+    is_custom: bool = False
     created_at: datetime
     customer: InvoiceCustomerInfo | None = None
     plan: InvoicePlanInfo | None = None
@@ -57,6 +60,14 @@ class InvoiceOut(BaseModel):
 
 class InvoiceStatusUpdate(BaseModel):
     status: InvoiceStatus
+
+
+class CustomInvoiceCreate(BaseModel):
+    customer_id: str
+    amount: Decimal
+    due_date: date
+    billing_month: str  # "YYYY-MM"
+    description: str | None = None
 
 
 class InvoiceListResponse(BaseModel):
