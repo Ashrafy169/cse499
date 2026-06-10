@@ -47,9 +47,11 @@ def generate_monthly_invoices(db: Session, billing_month: str | None = None) -> 
                 customer_id=customer.id,
                 plan_id=plan.id,
                 amount=plan.price_monthly,
+                amount_paid=0,
                 due_date=due_date,
                 billing_month=billing_month,
                 status=InvoiceStatus.unpaid,
+                is_custom=False,
             )
         )
 

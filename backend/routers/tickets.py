@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session, selectinload
 
 from core.dependencies import get_current_user, get_staff_user
 from database import get_db
+from models.notification import NotificationType
 from models.ticket import Ticket, TicketCategory, TicketStatus
 from models.user import User, UserRole
 from schemas.ticket import TicketCreate, TicketListResponse, TicketOut, TicketStatusUpdate
+from services.notification_service import create_notification, notify_all_staff
 
 router = APIRouter()
 
@@ -87,6 +89,15 @@ def create_ticket(
         status=TicketStatus.open,
     )
     db.add(ticket)
+    db.flush()
+
+    notify_all_staff(
+        db,
+        NotificationType.new_ticket,
+        "New Support Ticket",
+        f"{current_user.full_name} opened a ticket: \"{payload.title}\" [{payload.category}].",
+    )
+
     db.commit()
     db.refresh(ticket)
     db.refresh(ticket, attribute_names=["user"])
@@ -132,6 +143,16 @@ def update_ticket_status(
     if not ticket:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
     ticket.status = payload.status
+
+    # Notify ticket owner
+    create_notification(
+        db,
+        str(ticket.user_id),
+        NotificationType.ticket_updated,
+        "Ticket Status Updated",
+        f"Your ticket \"{ticket.title}\" is now {payload.status.value.replace('_', ' ')}.",
+    )
+
     db.commit()
     db.refresh(ticket)
     return ticket

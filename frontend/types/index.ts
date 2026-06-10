@@ -56,9 +56,12 @@ export interface Invoice {
   customer_id: string;
   plan_id: string | null;
   amount: string;
+  amount_paid: string;
   due_date: string;
   status: InvoiceStatus;
   billing_month: string;
+  description?: string | null;
+  is_custom: boolean;
   created_at: string;
   customer?: {
     id: string;
@@ -172,4 +175,30 @@ export interface ActivityEvent {
   label: string;
   timestamp: string;
   meta: Record<string, unknown>;
+}
+
+export type NotificationType =
+  | "overdue_invoice"
+  | "payment_received"
+  | "new_ticket"
+  | "ticket_updated"
+  | "plan_change_requested"
+  | "plan_change_reviewed"
+  | "invoice_generated"
+  | "custom_invoice";
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  items: Notification[];
+  total: number;
+  unread_count: number;
 }

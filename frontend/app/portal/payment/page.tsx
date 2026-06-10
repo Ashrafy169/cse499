@@ -60,7 +60,9 @@ export default function PaymentPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [accountInput, setAccountInput] = useState("");
+  const [payAmount, setPayAmount] = useState("");
   const [successRef, setSuccessRef] = useState("");
+  const [successPaid, setSuccessPaid] = useState<number>(0);
 
   const queryClient = useQueryClient();
 
@@ -72,10 +74,11 @@ export default function PaymentPage() {
   const unpaidInvoices = data?.items.filter((i) => i.status !== "paid") ?? [];
 
   const mutation = useMutation({
-    mutationFn: (payload: { invoice_id: string; method: PaymentMethod; transaction_ref: string }) =>
+    mutationFn: (payload: { invoice_id: string; method: PaymentMethod; transaction_ref: string; amount?: number }) =>
       submitPayment(payload),
     onSuccess: (res) => {
       setSuccessRef(res.data.transaction_ref);
+      setSuccessPaid(res.data.amount);
       setStep("success");
       queryClient.invalidateQueries({ queryKey: ["my-invoices"] });
       queryClient.invalidateQueries({ queryKey: ["my-invoices-payment"] });
@@ -89,10 +92,15 @@ export default function PaymentPage() {
     },
   });
 
+  function remainingBalance(inv: Invoice): number {
+    return Number(inv.amount) - Number(inv.amount_paid ?? 0);
+  }
+
   function handlePay() {
     if (!selectedInvoice || !selectedMethod || !accountInput.trim()) return;
     const ref = `${selectedMethod.toUpperCase()}-${Date.now()}-${accountInput.slice(-4)}`;
-    mutation.mutate({ invoice_id: selectedInvoice.id, method: selectedMethod, transaction_ref: ref });
+    const amount = payAmount ? parseFloat(payAmount) : undefined;
+    mutation.mutate({ invoice_id: selectedInvoice.id, method: selectedMethod, transaction_ref: ref, amount });
   }
 
   if (isLoading) {
@@ -122,7 +130,7 @@ export default function PaymentPage() {
               <div className="flex justify-between">
                 <span className="text-slate-500">Amount Paid</span>
                 <span className="font-semibold text-slate-800">
-                  ৳ {Number(selectedInvoice?.amount).toLocaleString()}
+                  ৳ {Number(successPaid || selectedInvoice?.amount).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -141,6 +149,8 @@ export default function PaymentPage() {
                 setSelectedInvoice(null);
                 setSelectedMethod(null);
                 setAccountInput("");
+                setPayAmount("");
+                setSuccessPaid(0);
               }}
             >
               Pay Another Invoice
@@ -203,13 +213,19 @@ export default function PaymentPage() {
                   key={inv.id}
                   onClick={() => {
                     setSelectedInvoice(inv);
+                    setPayAmount("");
                     setStep("select-method");
                   }}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-slate-200 hover:border-[#C41230] hover:bg-red-50 transition-all text-left"
                 >
                   <div>
                     <p className="font-semibold text-slate-800">{inv.billing_month}</p>
-                    <p className="text-sm text-slate-500">{inv.plan?.name ?? "—"}</p>
+                    <p className="text-sm text-slate-500">{inv.plan?.name ?? inv.description ?? "—"}</p>
+                    {Number(inv.amount_paid ?? 0) > 0 && (
+                      <p className="text-xs text-orange-500 mt-0.5">
+                        Paid: ৳ {Number(inv.amount_paid).toLocaleString()} · Balance: ৳ {remainingBalance(inv).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge className={STATUS_BADGE[inv.status]}>{inv.status}</Badge>
@@ -305,6 +321,24 @@ export default function PaymentPage() {
                 />
               </div>
 
+              <div className="space-y-1.5">
+                <Label>
+                  Amount to Pay (BDT) —{" "}
+                  <span className="text-slate-400 font-normal">
+                    Balance: ৳ {remainingBalance(selectedInvoice).toLocaleString()}
+                  </span>
+                </Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max={remainingBalance(selectedInvoice)}
+                  placeholder={`Full balance: ${remainingBalance(selectedInvoice)}`}
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                />
+                <p className="text-xs text-slate-400">Leave blank to pay full balance</p>
+              </div>
+
               {selectedMethod !== "card" && (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex gap-2 text-sm text-amber-700">
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -333,7 +367,7 @@ export default function PaymentPage() {
                     Processing…
                   </span>
                 ) : (
-                  `Pay ৳ ${Number(selectedInvoice.amount).toLocaleString()}`
+                  `Pay ৳ ${payAmount ? Number(payAmount).toLocaleString() : remainingBalance(selectedInvoice).toLocaleString()}`
                 )}
               </Button>
             </CardContent>

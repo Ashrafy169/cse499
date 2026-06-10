@@ -10,14 +10,22 @@ interface Message {
   content: string;
 }
 
-const QUICK_BUTTONS = [
+const CUSTOMER_QUICK_BUTTONS = [
   { label: "Check Bill", message: "When is my next bill due and how much is it?" },
   { label: "My Plan", message: "What is my current internet plan?" },
   { label: "No Internet", message: "I have no internet connection, what should I do?" },
   { label: "Upgrade Plan", message: "I want to upgrade my internet plan. What are my options?" },
 ];
 
-export default function ChatBot() {
+const ADMIN_QUICK_BUTTONS = [
+  { label: "Generate Invoice", message: "How do I generate monthly invoices for all customers?" },
+  { label: "Mark Overdue", message: "How do I mark invoices as overdue?" },
+  { label: "Custom Invoice", message: "How do I create a custom invoice for a customer?" },
+  { label: "Plan Change", message: "How do I approve or reject a plan change request?" },
+];
+
+export default function ChatBot({ role = "customer" }: { role?: string }) {
+  const QUICK_BUTTONS = role === "customer" ? CUSTOMER_QUICK_BUTTONS : ADMIN_QUICK_BUTTONS;
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -95,7 +103,9 @@ export default function ChatBot() {
             </div>
             <div>
               <p className="text-white font-semibold text-sm">AmberIT Assistant</p>
-              <p className="text-slate-400 text-xs">Ask about billing, plans, or support</p>
+              <p className="text-slate-400 text-xs">
+                {role === "customer" ? "Ask about billing, plans, or support" : "Ask about billing workflows & operations"}
+              </p>
             </div>
           </div>
 

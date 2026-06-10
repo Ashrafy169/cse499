@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, RefreshCw, AlertCircle } from "lucide-react";
+import { Download, RefreshCw, AlertCircle, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -23,13 +24,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   getInvoices,
   updateInvoiceStatus,
   generateInvoices,
   markOverdueInvoices,
   downloadInvoicePdf,
+  createCustomInvoice,
+  getCustomers,
 } from "@/lib/api";
-import { Invoice, InvoiceListResponse, InvoiceStatus } from "@/types";
+import { Invoice, InvoiceListResponse, InvoiceStatus, Customer, CustomerListResponse } from "@/types";
 
 const STATUS_BADGE: Record<InvoiceStatus, string> = {
   paid: "bg-green-100 text-green-700",
@@ -43,6 +52,14 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [monthFilter, setMonthFilter] = useState("");
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customForm, setCustomForm] = useState({
+    customer_id: "",
+    amount: "",
+    due_date: "",
+    billing_month: new Date().toISOString().slice(0, 7),
+    description: "",
+  });
 
   const params: Record<string, unknown> = { page, limit: 10 };
   if (search) params.customer_search = search;
@@ -82,6 +99,30 @@ export default function InvoicesPage() {
     onError: () => toast.error("Failed to mark overdue"),
   });
 
+  const customInvoiceMutation = useMutation({
+    mutationFn: (data: typeof customForm) =>
+      createCustomInvoice({
+        customer_id: data.customer_id,
+        amount: parseFloat(data.amount),
+        due_date: data.due_date,
+        billing_month: data.billing_month,
+        description: data.description || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      toast.success("Custom invoice created");
+      setShowCustomModal(false);
+      setCustomForm({ customer_id: "", amount: "", due_date: "", billing_month: new Date().toISOString().slice(0, 7), description: "" });
+    },
+    onError: () => toast.error("Failed to create invoice"),
+  });
+
+  const { data: customersData } = useQuery<CustomerListResponse>({
+    queryKey: ["customers-for-invoice"],
+    queryFn: () => getCustomers({ limit: 200 }).then((r) => r.data),
+    enabled: showCustomModal,
+  });
+
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 10);
 
@@ -102,6 +143,14 @@ export default function InvoicesPage() {
           >
             <AlertCircle size={14} className="mr-1" />
             Mark Overdue
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCustomModal(true)}
+          >
+            <Plus size={14} className="mr-1" />
+            Custom Invoice
           </Button>
           <Button
             size="sm"
@@ -197,6 +246,92 @@ export default function InvoicesPage() {
           </div>
         </div>
       )}
+
+      {/* Custom Invoice Dialog */}
+      <Dialog open={showCustomModal} onOpenChange={setShowCustomModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Custom Invoice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>Customer</Label>
+              <Select
+                value={customForm.customer_id}
+                onValueChange={(v) => setCustomForm((f) => ({ ...f, customer_id: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customersData?.items.map((c: Customer) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.full_name} — {c.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Amount (BDT)</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="e.g. 1500"
+                value={customForm.amount}
+                onChange={(e) => setCustomForm((f) => ({ ...f, amount: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Billing Month</Label>
+                <Input
+                  type="month"
+                  value={customForm.billing_month}
+                  onChange={(e) => setCustomForm((f) => ({ ...f, billing_month: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={customForm.due_date}
+                  onChange={(e) => setCustomForm((f) => ({ ...f, due_date: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Description (optional)</Label>
+              <Input
+                placeholder="e.g. Installation fee, Late charge…"
+                value={customForm.description}
+                onChange={(e) => setCustomForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                className="flex-1 bg-[#C41230] hover:bg-[#a30f28] text-white"
+                disabled={
+                  !customForm.customer_id ||
+                  !customForm.amount ||
+                  !customForm.due_date ||
+                  customInvoiceMutation.isPending
+                }
+                onClick={() => customInvoiceMutation.mutate(customForm)}
+              >
+                {customInvoiceMutation.isPending ? "Creating…" : "Create Invoice"}
+              </Button>
+              <Button variant="outline" onClick={() => setShowCustomModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -227,10 +362,21 @@ function InvoiceRow({
         <p className="font-medium text-slate-800">{invoice.customer?.full_name ?? "—"}</p>
         <p className="text-xs text-slate-400">{invoice.customer?.email}</p>
       </TableCell>
-      <TableCell className="text-slate-600">{invoice.plan?.name ?? "—"}</TableCell>
+      <TableCell className="text-slate-600">
+        {invoice.plan?.name ?? "—"}
+        {invoice.is_custom && (
+          <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-700 rounded font-medium">Custom</span>
+        )}
+        {invoice.description && (
+          <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[120px]" title={invoice.description}>{invoice.description}</p>
+        )}
+      </TableCell>
       <TableCell className="text-slate-600">{invoice.billing_month}</TableCell>
       <TableCell className="font-medium text-slate-800">
-        BDT {Number(invoice.amount).toLocaleString()}
+        <p>BDT {Number(invoice.amount).toLocaleString()}</p>
+        {Number(invoice.amount_paid ?? 0) > 0 && Number(invoice.amount_paid) < Number(invoice.amount) && (
+          <p className="text-xs text-orange-500">Paid: {Number(invoice.amount_paid).toLocaleString()} / Bal: {(Number(invoice.amount) - Number(invoice.amount_paid)).toLocaleString()}</p>
+        )}
       </TableCell>
       <TableCell className="text-slate-600">
         {new Date(invoice.due_date).toLocaleDateString()}

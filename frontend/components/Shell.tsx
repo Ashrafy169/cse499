@@ -103,7 +103,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <main className="flex-1 max-w-4xl mx-auto w-full p-6">{children}</main>
-        <ChatBot />
+        <ChatBot role="customer" />
       </div>
     );
   }
@@ -115,6 +115,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <Navbar />
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50">{children}</main>
       </div>
+      <ChatBot role={user.role} />
     </div>
   );
 }
