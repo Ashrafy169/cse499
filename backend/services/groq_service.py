@@ -2,7 +2,18 @@ import os
 
 from groq import Groq
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+_client = None
+
+def get_groq_client():
+    global _client
+    if _client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "GROQ_API_KEY is not configured. Please add GROQ_API_KEY to your backend/.env file."
+            )
+        _client = Groq(api_key=api_key)
+    return _client
 
 SYSTEM_PROMPT = (
     "You are a helpful customer support assistant for AmberIT, a Bangladeshi ISP (Internet Service Provider). "
@@ -21,6 +32,7 @@ def ask_groq(message: str, user_context: str = "") -> str:
         messages.append({"role": "assistant", "content": "I have your account details. How can I help you today?"})
     messages.append({"role": "user", "content": message})
 
+    client = get_groq_client()
     response = client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
         messages=messages,
